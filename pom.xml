@@ -115,6 +115,14 @@
 		</dependency>
 
 
+		<!-- UC12: RabbitMQ messaging using Spring AMQP -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-amqp</artifactId>
+		</dependency>
+
+
+
 
 	</dependencies>
 

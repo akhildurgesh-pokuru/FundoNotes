@@ -1,3 +1,4 @@
+
 package com.fundoonotes.service;
 
 import com.fundoonotes.entity.Note;
@@ -7,10 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,95 +38,81 @@ public class ReminderNotificationService {
         this.fromAddress = fromAddress;
     }
 
-    // UC10: Runs automatically after each configured delay.
-    // A single scheduled execution handles all eligible users.
-    @Scheduled(
-            fixedDelayString =
-                    "${app.reminder.check-delay-ms:60000}"
-    )
+    // UC12: Called by the RabbitMQ consumer, not by a scheduler.
     @Transactional
-    public void processDueReminders() {
+    public void sendDueReminder(Long noteId) {
 
-        Instant now = Instant.now();
+        Note note = noteRepository
+                .findReminderForProcessing(noteId)
+                .orElse(null);
 
-        var dueNotes =
-                noteRepository.findDueUnsentReminders(now);
-
-        if (dueNotes.isEmpty()) {
+        if (note == null) {
+            log.info("Reminder note {} no longer exists", noteId);
             return;
         }
 
-        log.info(
-                "UC10: Processing {} due reminders",
-                dueNotes.size()
+        Instant now = Instant.now();
+
+        // An old message must not email a cancelled,
+        // rescheduled, archived, or trashed note.
+        if (note.getReminderAt() == null
+                || note.getReminderAt().isAfter(now)
+                || note.getReminderSentAt() != null
+                || note.isArchived()
+                || note.isTrashed()) {
+
+            log.info(
+                    "Skipping ineligible reminder for note {}",
+                    noteId
+            );
+            return;
+        }
+
+        String recipient = note.getUser().getEmail();
+
+        if (recipient == null || recipient.isBlank()) {
+            log.warn(
+                    "Cannot email note {}: missing recipient",
+                    noteId
+            );
+            return;
+        }
+
+        SimpleMailMessage email = new SimpleMailMessage();
+
+        email.setFrom(fromAddress);
+        email.setTo(recipient);
+
+        email.setSubject(
+                "Fundoo Notes Reminder: " + note.getTitle()
         );
 
-        for (Note note : dueNotes) {
+        String description = note.getDescription() == null
+                ? ""
+                : note.getDescription();
 
-            String recipient = note.getUser().getEmail();
+        email.setText(
+                "Hello,\n\n"
+                        + "Your Fundoo Notes reminder is due.\n\n"
+                        + "Note: " + note.getTitle() + "\n"
+                        + "Description: " + description + "\n"
+                        + "Reminder time (UTC): "
+                        + note.getReminderAt() + "\n\n"
+                        + "Regards,\nFundoo Notes"
+        );
 
-            // Do not try to send emails with no recipient.
-            if (recipient == null || recipient.isBlank()) {
-                log.warn(
-                        "Skipping reminder for note {}: "
-                                + "user email is missing",
-                        note.getId()
-                );
-                continue;
-            }
+        // If SMTP fails, the exception propagates to the
+        // RabbitMQ listener. The transaction rolls back.
+        mailSender.send(email);
 
-            SimpleMailMessage message =
-                    new SimpleMailMessage();
+        // Only mark sent after SMTP accepted the email.
+        note.setReminderSentAt(Instant.now());
 
-            message.setFrom(fromAddress);
-            message.setTo(recipient);
-            message.setSubject(
-                    "Fundoo Notes Reminder: "
-                            + note.getTitle()
-            );
+        noteRepository.saveAndFlush(note);
 
-            String description =
-                    note.getDescription() == null
-                            ? ""
-                            : note.getDescription();
-
-            message.setText(
-                    "Hello,\n\n"
-                            + "This is your Fundoo Notes reminder.\n\n"
-                            + "Note: " + note.getTitle() + "\n"
-                            + "Description: " + description + "\n"
-                            + "Reminder time (UTC): "
-                            + note.getReminderAt() + "\n\n"
-                            + "Regards,\n"
-                            + "Fundoo Notes"
-            );
-
-            try {
-                // Mailpit captures this email locally.
-                mailSender.send(message);
-
-                // Record success so it is not sent again.
-                note.setReminderSentAt(
-                        Instant.now()
-                );
-
-                noteRepository.saveAndFlush(note);
-
-                log.info(
-                        "Reminder email sent for note {}",
-                        note.getId()
-                );
-
-            } catch (MailException ex) {
-
-                // Keep reminderSentAt as NULL so it
-                // can be retried at a later check.
-                log.error(
-                        "Failed to email reminder for note {}: {}",
-                        note.getId(),
-                        ex.getMessage()
-                );
-            }
-        }
+        log.info(
+                "UC12: Reminder email sent for note {}",
+                noteId
+        );
     }
 }
