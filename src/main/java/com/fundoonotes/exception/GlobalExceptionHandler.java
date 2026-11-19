@@ -105,4 +105,17 @@ public class GlobalExceptionHandler {
     }
 
 
+    @ExceptionHandler(InvalidAccountTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidAccountToken(
+            InvalidAccountTokenException exception
+    ) {
+
+        return buildError(
+                HttpStatus.BAD_REQUEST,
+                exception.getMessage()
+        );
+    }
+
+
+
 }

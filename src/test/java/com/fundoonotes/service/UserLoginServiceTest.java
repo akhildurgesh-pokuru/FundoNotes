@@ -12,9 +12,11 @@ import com.fundoonotes.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
@@ -34,6 +36,11 @@ class UserLoginServiceTest {
     @Mock
     private TokenUtil tokenUtil;
 
+    // Added in UC4 because UserServiceImpl depends on AccountService.
+    @Mock
+    private AccountService accountService;
+
+    // Mockito injects all four mocked dependencies.
     @InjectMocks
     private UserServiceImpl userService;
 
@@ -42,11 +49,15 @@ class UserLoginServiceTest {
     @BeforeEach
     void setUp() {
 
+        // Create a test user before every test.
         user = new User();
 
         user.setId(1L);
         user.setEmail("ravi@example.com");
         user.setPassword("stored-password-hash");
+
+        // UC4 requires email verification before login.
+        user.setEmailVerified(true);
     }
 
     @Test
@@ -58,14 +69,17 @@ class UserLoginServiceTest {
                         "Password@123"
                 );
 
+        // Simulate finding the registered user.
         when(userRepository.findByEmail("ravi@example.com"))
                 .thenReturn(Optional.of(user));
 
+        // Simulate a successful BCrypt password match.
         when(passwordEncoder.matches(
                 "Password@123",
                 "stored-password-hash"
         )).thenReturn(true);
 
+        // Simulate JWT generation.
         when(tokenUtil.generateToken(1L))
                 .thenReturn("sample.jwt.token");
 
@@ -77,6 +91,7 @@ class UserLoginServiceTest {
         assertEquals("sample.jwt.token", response.token());
         assertEquals("Bearer", response.tokenType());
         assertEquals(86400L, response.expiresIn());
+        assertEquals("Login successful", response.message());
 
         verify(tokenUtil).generateToken(1L);
     }
@@ -93,6 +108,7 @@ class UserLoginServiceTest {
         when(userRepository.findByEmail("ravi@example.com"))
                 .thenReturn(Optional.of(user));
 
+        // Simulate an incorrect password.
         when(passwordEncoder.matches(
                 "WrongPassword",
                 "stored-password-hash"
@@ -103,6 +119,7 @@ class UserLoginServiceTest {
                 () -> userService.login(request)
         );
 
+        // JWT must not be generated for incorrect credentials.
         verify(tokenUtil, never()).generateToken(anyLong());
     }
 
@@ -122,5 +139,36 @@ class UserLoginServiceTest {
                 InvalidCredentialsException.class,
                 () -> userService.login(request)
         );
+
+        verify(tokenUtil, never()).generateToken(anyLong());
+    }
+
+    @Test
+    void login_ShouldFail_WhenEmailIsNotVerified() {
+
+        // Simulate a user who has registered but not verified email.
+        user.setEmailVerified(false);
+
+        LoginRequestDto request =
+                new LoginRequestDto(
+                        "ravi@example.com",
+                        "Password@123"
+                );
+
+        when(userRepository.findByEmail("ravi@example.com"))
+                .thenReturn(Optional.of(user));
+
+        when(passwordEncoder.matches(
+                "Password@123",
+                "stored-password-hash"
+        )).thenReturn(true);
+
+        assertThrows(
+                InvalidCredentialsException.class,
+                () -> userService.login(request)
+        );
+
+        // Unverified users must not receive JWTs.
+        verify(tokenUtil, never()).generateToken(anyLong());
     }
 }
