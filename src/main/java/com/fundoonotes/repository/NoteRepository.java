@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -76,7 +77,7 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     );
 
     // UC8: Find all note relationships for label deletion.
-// Include archived and trashed notes to clean up every link.
+    // Include archived and trashed notes to clean up every link.
     @Query("""
     SELECT DISTINCT n
     FROM Note n
@@ -88,5 +89,24 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
             @Param("userId") Long userId,
             @Param("labelId") Long labelId
     );
+
+
+    // UC9: Find upcoming reminders for this user.
+    // Archived and trashed notes are excluded.
+    @Query("""
+    SELECT n
+    FROM Note n
+    WHERE n.user.id = :userId
+      AND n.reminderAt IS NOT NULL
+      AND n.reminderAt > :now
+      AND n.archived = false
+      AND n.trashed = false
+    ORDER BY n.reminderAt ASC
+    """)
+    List<Note> findUpcomingReminders(
+            @Param("userId") Long userId,
+            @Param("now") Instant now
+    );
+
 
 }

@@ -11,6 +11,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import com.fundoonotes.dto.request.ReminderRequestDto;
+import com.fundoonotes.dto.response.ReminderResponseDto;
+import jakarta.validation.Valid;
 
 import java.util.List;
 
@@ -233,5 +236,47 @@ public class NoteController {
 
         return ResponseEntity.noContent().build();
     }
+
+
+    // UC9: Set or update a reminder.
+    @PutMapping("/{id}/reminder")
+    public ResponseEntity<ReminderResponseDto> setReminder(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long id,
+            @Valid @RequestBody ReminderRequestDto request
+    ) {
+
+        return ResponseEntity.ok(
+                noteService.setReminder(
+                        userId,
+                        id,
+                        request.reminderAt()
+                )
+        );
+    }
+
+    // UC9: List the authenticated user's upcoming reminders.
+    @GetMapping("/reminders")
+    public ResponseEntity<List<ReminderResponseDto>> getReminders(
+            @AuthenticationPrincipal Long userId
+    ) {
+
+        return ResponseEntity.ok(
+                noteService.getUpcomingReminders(userId)
+        );
+    }
+
+    // UC9: Remove the reminder from a note.
+    @DeleteMapping("/{id}/reminder")
+    public ResponseEntity<Void> removeReminder(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long id
+    ) {
+
+        noteService.removeReminder(userId, id);
+
+        return ResponseEntity.noContent().build();
+    }
+
 
 }
