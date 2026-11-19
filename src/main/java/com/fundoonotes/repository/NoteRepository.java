@@ -109,4 +109,22 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     );
 
 
+    // UC10: Find reminders that are due and have not
+    // yet been successfully emailed.
+    @Query("""
+            SELECT n
+            FROM Note n
+            WHERE n.reminderAt IS NOT NULL
+              AND n.reminderAt <= :now
+              AND n.reminderSentAt IS NULL
+              AND n.archived = false
+              AND n.trashed = false
+            ORDER BY n.reminderAt ASC
+            """)
+    List<Note> findDueUnsentReminders(
+            @Param("now") Instant now
+    );
+
+
+
 }
