@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -38,13 +39,15 @@ public class NoteImportController {
     private final JobLauncher jobLauncher;
     private final Job importNotesJob;
 
+
     public NoteImportController(
             JobLauncher jobLauncher,
-            Job importNotesJob
+            @Qualifier("importNotesJob") Job importNotesJob
     ) {
         this.jobLauncher = jobLauncher;
         this.importNotesJob = importNotesJob;
     }
+
 
     // UC14: Upload a CSV file containing notes.
     @PostMapping(
