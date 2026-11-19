@@ -1,4 +1,3 @@
-
 package com.fundoonotes.service;
 
 import com.fundoonotes.dto.request.NoteRequestDto;
@@ -8,7 +7,8 @@ import java.util.List;
 
 public interface NoteService {
 
-    // UC5: Basic CRUD operations.
+    // UC5: Create, Read, Update, Delete
+
     NoteResponseDto createNote(
             Long userId,
             NoteRequestDto request
@@ -27,10 +27,10 @@ public interface NoteService {
             NoteRequestDto request
     );
 
-    // UC6: Ordinary deletion now moves notes to Trash.
     void deleteNote(Long userId, Long noteId);
 
-    // UC6: Note lifecycle operations.
+    // UC6: Pin, Archive, Trash, Restore
+
     NoteResponseDto pinNote(Long userId, Long noteId);
 
     NoteResponseDto unpinNote(Long userId, Long noteId);
@@ -48,4 +48,11 @@ public interface NoteService {
     List<NoteResponseDto> getTrashedNotes(Long userId);
 
     void permanentlyDeleteNote(Long userId, Long noteId);
+
+    // UC7: Search active notes owned by the current user.
+
+    List<NoteResponseDto> searchNotes(
+            Long userId,
+            String keyword
+    );
 }

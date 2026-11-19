@@ -1,8 +1,10 @@
-
 package com.fundoonotes.repository;
 
 import com.fundoonotes.entity.Note;
+
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -11,24 +13,48 @@ import java.util.Optional;
 @Repository
 public interface NoteRepository extends JpaRepository<Note, Long> {
 
-    // UC5: Ownership check for every note operation.
+    // UC5: Find a note only when it belongs to this user.
     Optional<Note> findByIdAndUserId(
             Long noteId,
             Long userId
     );
 
-    // UC6: Main notes list (exclude archived and trashed).
-    List<Note> findByUserIdAndArchivedFalseAndTrashedFalseOrderByPinnedDescUpdatedAtDesc(
+    // UC6: Retrieve active notes, pinned first.
+    List<Note>
+    findByUserIdAndArchivedFalseAndTrashedFalseOrderByPinnedDescUpdatedAtDesc(
             Long userId
     );
 
-    // UC6: Archived notes only.
-    List<Note> findByUserIdAndArchivedTrueAndTrashedFalseOrderByUpdatedAtDesc(
+    // UC6: Retrieve archived notes.
+    List<Note>
+    findByUserIdAndArchivedTrueAndTrashedFalseOrderByUpdatedAtDesc(
             Long userId
     );
 
-    // UC6: Trashed notes only.
-    List<Note> findByUserIdAndTrashedTrueOrderByUpdatedAtDesc(
+    // UC6: Retrieve notes in Trash.
+    List<Note>
+    findByUserIdAndTrashedTrueOrderByUpdatedAtDesc(
             Long userId
+    );
+
+    // UC7: Search both title and description.
+    @Query("""
+            SELECT n
+            FROM Note n
+            WHERE n.user.id = :userId
+              AND n.archived = false
+              AND n.trashed = false
+              AND (
+                  LOWER(n.title) LIKE
+                      LOWER(CONCAT('%', :keyword, '%'))
+                  OR
+                  LOWER(COALESCE(n.description, '')) LIKE
+                      LOWER(CONCAT('%', :keyword, '%'))
+              )
+            ORDER BY n.pinned DESC, n.updatedAt DESC
+            """)
+    List<Note> searchActiveNotes(
+            @Param("userId") Long userId,
+            @Param("keyword") String keyword
     );
 }

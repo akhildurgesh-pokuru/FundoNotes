@@ -3,6 +3,7 @@ package com.fundoonotes.controller;
 import com.fundoonotes.dto.request.NoteRequestDto;
 import com.fundoonotes.dto.response.NoteResponseDto;
 import com.fundoonotes.service.NoteService;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import jakarta.validation.Valid;
 
@@ -70,6 +71,22 @@ public class NoteController {
                 noteService.getTrashedNotes(userId)
         );
     }
+
+
+    // UC7: Search notes by title or description.
+    @GetMapping("/search")
+    public ResponseEntity<List<NoteResponseDto>> searchNotes(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam String keyword
+    ) {
+
+        // The user ID comes from the validated JWT.
+        List<NoteResponseDto> results =
+                noteService.searchNotes(userId, keyword);
+
+        return ResponseEntity.ok(results);
+    }
+
 
     // UC5: GET ONE NOTE
     @GetMapping("/{id}")
