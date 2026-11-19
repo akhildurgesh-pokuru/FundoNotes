@@ -10,6 +10,9 @@ import com.fundoonotes.repository.NoteRepository;
 import com.fundoonotes.repository.UserRepository;
 import com.fundoonotes.service.LabelService;
 
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,7 +37,9 @@ public class LabelServiceImpl implements LabelService {
         this.userRepository = userRepository;
     }
 
+
     @Override
+    @CacheEvict(cacheNames = "userLabels", key = "#p0")
     @Transactional
     public LabelResponseDto createLabel(
             Long userId,
@@ -69,7 +74,12 @@ public class LabelServiceImpl implements LabelService {
         return mapToResponse(saved);
     }
 
+
     @Override
+    @Cacheable(
+            cacheNames = "userLabels",
+            key = "#p0"
+    )
     @Transactional(readOnly = true)
     public List<LabelResponseDto> getAllLabels(Long userId) {
 
@@ -80,7 +90,9 @@ public class LabelServiceImpl implements LabelService {
                 .toList();
     }
 
+
     @Override
+    @CacheEvict(cacheNames = "userLabels", key = "#p0")
     @Transactional
     public LabelResponseDto renameLabel(
             Long userId,
@@ -108,6 +120,7 @@ public class LabelServiceImpl implements LabelService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "userLabels", key = "#p0")
     @Transactional
     public void deleteLabel(Long userId, Long labelId) {
 

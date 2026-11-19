@@ -94,6 +94,20 @@
 		</dependency>
 
 
+		<!-- UC11: Redis connection and data access -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+		</dependency>
+
+		<!-- UC11: Spring Cache annotations -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-cache</artifactId>
+		</dependency>
+
+
+
 		<!-- SMTP email sending support -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
