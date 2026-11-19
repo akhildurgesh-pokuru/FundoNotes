@@ -122,6 +122,12 @@
 		</dependency>
 
 
+		<!-- UC13: Spring AOP for logging and performance monitoring -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-aop</artifactId>
+		</dependency>
+
 
 
 	</dependencies>
