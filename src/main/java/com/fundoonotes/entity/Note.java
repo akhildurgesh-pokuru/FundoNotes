@@ -7,6 +7,7 @@ import java.util.Set;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.Column;
 
 @Entity
 @Table(name = "notes")
@@ -31,6 +32,21 @@ public class Note {
 
     @Column(nullable = false)
     private boolean trashed = false;
+
+
+    // UC9: Optional reminder timestamp.
+    // Instant represents an exact moment in UTC.
+    @Column(name = "reminder_at")
+    private Instant reminderAt;
+
+    public Instant getReminderAt() {
+        return reminderAt;
+    }
+
+    public void setReminderAt(Instant reminderAt) {
+        this.reminderAt = reminderAt;
+    }
+
 
     // Each note belongs to exactly one registered user.
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

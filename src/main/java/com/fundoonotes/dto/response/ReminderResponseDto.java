@@ -1,4 +1,11 @@
 package com.fundoonotes.dto.response;
 
-public class ReminderResponseDto {
+import java.time.Instant;
+
+public record ReminderResponseDto(
+        Long noteId,
+        String title,
+        String description,
+        Instant reminderAt
+) {
 }

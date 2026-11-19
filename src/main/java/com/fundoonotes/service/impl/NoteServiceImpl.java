@@ -17,6 +17,14 @@ import com.fundoonotes.repository.LabelRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.fundoonotes.dto.response.ReminderResponseDto;
+import java.time.Instant;
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -507,6 +515,102 @@ public class NoteServiceImpl implements NoteService {
                 .map(this::mapToResponse)
                 .toList();
     }
+
+
+    // UC9: Set or change the reminder time.
+    @Override
+    @Transactional
+    public ReminderResponseDto setReminder(
+            Long userId,
+            Long noteId,
+            Instant reminderAt
+    ) {
+
+        if (reminderAt == null
+                || !reminderAt.isAfter(Instant.now())) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Reminder must be a future date and time"
+            );
+        }
+
+        // Enforce ownership before changing the note.
+        Note note = noteRepository
+                .findByIdAndUserId(noteId, userId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Note not found"
+                        )
+                );
+
+        // Do not allow reminders on archived or trashed notes.
+        if (note.isArchived() || note.isTrashed()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Restore or unarchive the note first"
+            );
+        }
+
+        note.setReminderAt(reminderAt);
+
+        Note saved = noteRepository.saveAndFlush(note);
+
+        return mapToReminderResponse(saved);
+    }
+
+    // UC9: Retrieve future reminders in chronological order.
+    @Override
+    @Transactional(readOnly = true)
+    public List<ReminderResponseDto> getUpcomingReminders(
+            Long userId
+    ) {
+
+        List<Note> notes = noteRepository
+                .findUpcomingReminders(
+                        userId,
+                        Instant.now()
+                );
+
+        return notes.stream()
+                .map(this::mapToReminderResponse)
+                .toList();
+    }
+
+    // UC9: Remove a reminder without deleting the note.
+    @Override
+    @Transactional
+    public void removeReminder(
+            Long userId,
+            Long noteId
+    ) {
+
+        Note note = noteRepository
+                .findByIdAndUserId(noteId, userId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Note not found"
+                        )
+                );
+
+        note.setReminderAt(null);
+
+        noteRepository.saveAndFlush(note);
+    }
+
+    // UC9: Convert a Note entity into the reminder response.
+    private ReminderResponseDto mapToReminderResponse(Note note) {
+
+        return new ReminderResponseDto(
+                note.getId(),
+                note.getTitle(),
+                note.getDescription(),
+                note.getReminderAt()
+        );
+    }
+
 
 
 }

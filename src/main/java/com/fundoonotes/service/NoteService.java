@@ -3,6 +3,9 @@ package com.fundoonotes.service;
 import com.fundoonotes.dto.request.NoteRequestDto;
 import com.fundoonotes.dto.response.NoteResponseDto;
 
+import com.fundoonotes.dto.response.ReminderResponseDto;
+import java.time.Instant;
+
 import java.util.List;
 
 public interface NoteService {
@@ -76,5 +79,25 @@ public interface NoteService {
             Long userId,
             Long labelId
     );
+
+
+    // UC9: Set or update a reminder on a note.
+    ReminderResponseDto setReminder(
+            Long userId,
+            Long noteId,
+            Instant reminderAt
+    );
+
+    // UC9: Get upcoming reminders for the current user.
+    List<ReminderResponseDto> getUpcomingReminders(
+            Long userId
+    );
+
+    // UC9: Clear the reminder from a note.
+    void removeReminder(
+            Long userId,
+            Long noteId
+    );
+
 
 }
