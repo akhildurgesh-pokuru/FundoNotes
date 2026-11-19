@@ -7,6 +7,7 @@ import com.fundoonotes.entity.User;
 import com.fundoonotes.exception.UserAlreadyExistsException;
 import com.fundoonotes.repository.UserRepository;
 import com.fundoonotes.service.impl.UserServiceImpl;
+import com.fundoonotes.security.TokenUtil;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,9 @@ class UserServiceImplTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private TokenUtil tokenUtil;
+
     private UserServiceImpl userService;
 
     private final PasswordEncoder passwordEncoder =
@@ -36,7 +40,8 @@ class UserServiceImplTest {
 
         userService = new UserServiceImpl(
                 userRepository,
-                passwordEncoder
+                passwordEncoder,
+                tokenUtil
         );
     }
 
