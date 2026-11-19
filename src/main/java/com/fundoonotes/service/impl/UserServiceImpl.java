@@ -2,12 +2,14 @@
 package com.fundoonotes.service.impl;
 
 import com.fundoonotes.dto.request.LoginRequestDto;
+import com.fundoonotes.dto.request.UpdateUserProfileRequestDto;
 import com.fundoonotes.dto.request.UserRegisterRequestDto;
 import com.fundoonotes.dto.response.LoginResponseDto;
 import com.fundoonotes.dto.response.UserResponseDto;
 import com.fundoonotes.entity.User;
 import com.fundoonotes.exception.InvalidCredentialsException;
 import com.fundoonotes.exception.UserAlreadyExistsException;
+import com.fundoonotes.exception.UserNotFoundException;
 import com.fundoonotes.repository.UserRepository;
 import com.fundoonotes.security.TokenUtil;
 import com.fundoonotes.service.UserService;
@@ -60,7 +62,7 @@ public class UserServiceImpl implements UserService {
         user.setLastName(request.lastName().trim());
         user.setEmail(email);
 
-        // Encode the password before database persistence.
+        // Hash the password before saving the user.
         user.setPassword(
                 passwordEncoder.encode(request.password())
         );
@@ -86,7 +88,6 @@ public class UserServiceImpl implements UserService {
                 .trim()
                 .toLowerCase(Locale.ROOT);
 
-        // Find the user using the registered email address.
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
                         new InvalidCredentialsException(
@@ -94,7 +95,7 @@ public class UserServiceImpl implements UserService {
                         )
                 );
 
-        // Compare the entered password against the stored BCrypt hash.
+        // Verify the entered password against its BCrypt hash.
         if (!passwordEncoder.matches(
                 request.password(),
                 user.getPassword()
@@ -104,7 +105,6 @@ public class UserServiceImpl implements UserService {
             );
         }
 
-        // Create a signed token using the saved user ID.
         String token = tokenUtil.generateToken(user.getId());
 
         log.info("User logged in with ID {}", user.getId());
@@ -114,6 +114,59 @@ public class UserServiceImpl implements UserService {
                 "Bearer",
                 tokenUtil.getExpirationSeconds(),
                 "Login successful"
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserResponseDto getProfile(Long userId) {
+
+        // The user ID comes from the authenticated JWT.
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new UserNotFoundException(
+                                "User profile not found"
+                        )
+                );
+
+        return new UserResponseDto(
+                user.getId(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getEmail(),
+                "User profile retrieved successfully"
+        );
+    }
+
+    @Override
+    @Transactional
+    public UserResponseDto updateProfile(
+            Long userId,
+            UpdateUserProfileRequestDto request
+    ) {
+
+        // Retrieve only the authenticated user's account.
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new UserNotFoundException(
+                                "User profile not found"
+                        )
+                );
+
+        // Update only fields permitted by this use case.
+        user.setFirstName(request.firstName().trim());
+        user.setLastName(request.lastName().trim());
+
+        User savedUser = userRepository.saveAndFlush(user);
+
+        log.info("Updated profile for user ID {}", savedUser.getId());
+
+        return new UserResponseDto(
+                savedUser.getId(),
+                savedUser.getFirstName(),
+                savedUser.getLastName(),
+                savedUser.getEmail(),
+                "User profile updated successfully"
         );
     }
 }
