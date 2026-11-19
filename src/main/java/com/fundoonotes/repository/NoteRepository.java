@@ -2,7 +2,9 @@ package com.fundoonotes.repository;
 
 import com.fundoonotes.entity.Note;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -124,6 +126,21 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     List<Note> findDueUnsentReminders(
             @Param("now") Instant now
     );
+
+
+    // UC12: Lock the note during reminder delivery.
+    // JOIN FETCH loads the owning user for the email address.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+    SELECT n
+    FROM Note n
+    JOIN FETCH n.user
+    WHERE n.id = :noteId
+    """)
+    Optional<Note> findReminderForProcessing(
+            @Param("noteId") Long noteId
+    );
+
 
 
 

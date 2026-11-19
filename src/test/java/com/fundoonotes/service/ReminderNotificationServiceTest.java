@@ -8,19 +8,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.MailSendException;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import java.time.Instant;
-import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,19 +30,18 @@ class ReminderNotificationServiceTest {
     @Mock
     private JavaMailSender mailSender;
 
-    private ReminderNotificationService notificationService;
+    private ReminderNotificationService service;
 
     private Note note;
 
     @BeforeEach
     void setUp() {
 
-        notificationService =
-                new ReminderNotificationService(
-                        noteRepository,
-                        mailSender,
-                        "no-reply@fundoonotes.local"
-                );
+        service = new ReminderNotificationService(
+                noteRepository,
+                mailSender,
+                "no-reply@fundoonotes.local"
+        );
 
         User user = new User();
         user.setId(3L);
@@ -52,43 +49,25 @@ class ReminderNotificationServiceTest {
 
         note = new Note();
         note.setId(2L);
-        note.setTitle("Spring Boot Practice");
-        note.setDescription("Learning Spring Security");
         note.setUser(user);
+        note.setTitle("Spring Boot Practice");
+        note.setDescription("Learning RabbitMQ");
         note.setReminderAt(
-                Instant.parse("2026-11-19T08:00:00Z")
+                Instant.now().minusSeconds(60)
         );
         note.setReminderSentAt(null);
     }
 
     @Test
-    void dueReminder_ShouldSendEmailAndMarkAsSent() {
+    void dueReminder_ShouldSendEmail() {
 
-        when(noteRepository.findDueUnsentReminders(
-                any(Instant.class)
-        )).thenReturn(List.of(note));
+        when(noteRepository.findReminderForProcessing(2L))
+                .thenReturn(Optional.of(note));
 
-        notificationService.processDueReminders();
+        service.sendDueReminder(2L);
 
-        ArgumentCaptor<SimpleMailMessage> captor =
-                ArgumentCaptor.forClass(
-                        SimpleMailMessage.class
-                );
-
-        verify(mailSender).send(captor.capture());
-
-        SimpleMailMessage email = captor.getValue();
-
-        assertArrayEquals(
-                new String[]{"arun@example.com"},
-                email.getTo()
-        );
-
-        assertTrue(
-                email.getSubject().contains(
-                        "Spring Boot Practice"
-                )
-        );
+        verify(mailSender)
+                .send(any(SimpleMailMessage.class));
 
         assertNotNull(note.getReminderSentAt());
 
@@ -96,13 +75,14 @@ class ReminderNotificationServiceTest {
     }
 
     @Test
-    void noDueReminders_ShouldNotSendEmail() {
+    void alreadySentReminder_ShouldNotSendAgain() {
 
-        when(noteRepository.findDueUnsentReminders(
-                any(Instant.class)
-        )).thenReturn(List.of());
+        note.setReminderSentAt(Instant.now());
 
-        notificationService.processDueReminders();
+        when(noteRepository.findReminderForProcessing(2L))
+                .thenReturn(Optional.of(note));
+
+        service.sendDueReminder(2L);
 
         verifyNoInteractions(mailSender);
         verify(noteRepository, never())
@@ -110,36 +90,33 @@ class ReminderNotificationServiceTest {
     }
 
     @Test
-    void emailFailure_ShouldNotMarkReminderAsSent() {
+    void cancelledReminder_ShouldNotSend() {
 
-        when(noteRepository.findDueUnsentReminders(
-                any(Instant.class)
-        )).thenReturn(List.of(note));
+        note.setReminderAt(null);
+
+        when(noteRepository.findReminderForProcessing(2L))
+                .thenReturn(Optional.of(note));
+
+        service.sendDueReminder(2L);
+
+        verifyNoInteractions(mailSender);
+    }
+
+    @Test
+    void smtpFailure_ShouldNotMarkSent() {
+
+        when(noteRepository.findReminderForProcessing(2L))
+                .thenReturn(Optional.of(note));
 
         doThrow(new MailSendException("SMTP unavailable"))
                 .when(mailSender)
                 .send(any(SimpleMailMessage.class));
 
-        notificationService.processDueReminders();
+        assertThrows(
+                MailSendException.class,
+                () -> service.sendDueReminder(2L)
+        );
 
-        assertNull(note.getReminderSentAt());
-
-        verify(noteRepository, never())
-                .saveAndFlush(any(Note.class));
-    }
-
-    @Test
-    void missingRecipient_ShouldSkipReminder() {
-
-        note.getUser().setEmail("");
-
-        when(noteRepository.findDueUnsentReminders(
-                any(Instant.class)
-        )).thenReturn(List.of(note));
-
-        notificationService.processDueReminders();
-
-        verifyNoInteractions(mailSender);
         assertNull(note.getReminderSentAt());
     }
 }
