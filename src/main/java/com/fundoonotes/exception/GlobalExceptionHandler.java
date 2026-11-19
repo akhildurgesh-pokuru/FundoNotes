@@ -117,5 +117,18 @@ public class GlobalExceptionHandler {
     }
 
 
+    @ExceptionHandler(NoteNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoteNotFound(
+            NoteNotFoundException exception
+    ) {
+
+        return buildError(
+                HttpStatus.NOT_FOUND,
+                exception.getMessage()
+        );
+    }
+
+
+
 
 }
