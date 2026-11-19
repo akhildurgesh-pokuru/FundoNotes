@@ -79,4 +79,17 @@ public class GlobalExceptionHandler {
                 .status(status)
                 .body(body);
     }
+
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidCredentials(
+            InvalidCredentialsException exception
+    ) {
+
+        return buildError(
+                HttpStatus.UNAUTHORIZED,
+                exception.getMessage()
+        );
+    }
+
 }
