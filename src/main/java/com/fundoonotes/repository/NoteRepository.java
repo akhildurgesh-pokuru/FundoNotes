@@ -57,4 +57,36 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
             @Param("userId") Long userId,
             @Param("keyword") String keyword
     );
+
+
+    // UC8: Get active notes with a specific label.
+    @Query("""
+    SELECT DISTINCT n
+    FROM Note n
+    JOIN n.labels l
+    WHERE n.user.id = :userId
+      AND l.id = :labelId
+      AND n.archived = false
+      AND n.trashed = false
+    ORDER BY n.pinned DESC, n.updatedAt DESC
+    """)
+    List<Note> findActiveNotesByLabel(
+            @Param("userId") Long userId,
+            @Param("labelId") Long labelId
+    );
+
+    // UC8: Find all note relationships for label deletion.
+// Include archived and trashed notes to clean up every link.
+    @Query("""
+    SELECT DISTINCT n
+    FROM Note n
+    JOIN n.labels l
+    WHERE n.user.id = :userId
+      AND l.id = :labelId
+    """)
+    List<Note> findAllNotesByLabel(
+            @Param("userId") Long userId,
+            @Param("labelId") Long labelId
+    );
+
 }

@@ -2,6 +2,11 @@ package com.fundoonotes.entity;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToMany;
 
 @Entity
 @Table(name = "notes")
@@ -40,6 +45,31 @@ public class Note {
 
     public Note() {
     }
+
+
+    // UC8: A note can belong to multiple labels.
+    @ManyToMany
+    @JoinTable(
+            name = "note_labels",
+            joinColumns = @JoinColumn(name = "note_id"),
+            inverseJoinColumns = @JoinColumn(name = "label_id")
+    )
+    private Set<Label> labels = new HashSet<>();
+
+    // Safe collection access for new and existing notes.
+    public Set<Label> getLabels() {
+        if (labels == null) {
+            labels = new HashSet<>();
+        }
+        return labels;
+    }
+
+    public void setLabels(Set<Label> labels) {
+        this.labels = labels == null
+                ? new HashSet<>()
+                : labels;
+    }
+
 
     // Automatically set timestamps when a note is created.
     @PrePersist
