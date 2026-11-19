@@ -5,6 +5,7 @@ import com.fundoonotes.dto.response.NoteResponseDto;
 import com.fundoonotes.entity.Note;
 import com.fundoonotes.entity.User;
 import com.fundoonotes.exception.NoteNotFoundException;
+import com.fundoonotes.repository.LabelRepository;
 import com.fundoonotes.repository.NoteRepository;
 import com.fundoonotes.repository.UserRepository;
 import com.fundoonotes.service.impl.NoteServiceImpl;
@@ -33,6 +34,9 @@ class NoteServiceImplTest {
 
     @InjectMocks
     private NoteServiceImpl noteService;
+
+    @Mock
+    private LabelRepository labelRepository;
 
     private User user;
     private Note note;

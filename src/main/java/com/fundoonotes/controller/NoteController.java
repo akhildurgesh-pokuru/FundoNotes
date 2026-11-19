@@ -208,4 +208,30 @@ public class NoteController {
 
         return ResponseEntity.noContent().build();
     }
+
+
+    // UC8: Attach an existing label to a note.
+    @PutMapping("/{noteId}/labels/{labelId}")
+    public ResponseEntity<Void> assignLabel(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long noteId,
+            @PathVariable Long labelId
+    ) {
+        noteService.assignLabel(userId, noteId, labelId);
+
+        return ResponseEntity.noContent().build();
+    }
+
+    // UC8: Remove a label from a note.
+    @DeleteMapping("/{noteId}/labels/{labelId}")
+    public ResponseEntity<Void> removeLabel(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long noteId,
+            @PathVariable Long labelId
+    ) {
+        noteService.removeLabel(userId, noteId, labelId);
+
+        return ResponseEntity.noContent().build();
+    }
+
 }

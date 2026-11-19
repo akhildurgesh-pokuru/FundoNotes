@@ -12,6 +12,10 @@ import com.fundoonotes.repository.UserRepository;
 import com.fundoonotes.service.NoteService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import com.fundoonotes.entity.Label;
+import com.fundoonotes.repository.LabelRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,13 +32,16 @@ public class NoteServiceImpl implements NoteService {
 
     private final NoteRepository noteRepository;
     private final UserRepository userRepository;
+    private final LabelRepository labelRepository;
 
     public NoteServiceImpl(
             NoteRepository noteRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            LabelRepository labelRepository
     ) {
         this.noteRepository = noteRepository;
         this.userRepository = userRepository;
+        this.labelRepository = labelRepository;
     }
 
     // ---------------- UC5: CREATE ----------------
@@ -401,5 +408,105 @@ public class NoteServiceImpl implements NoteService {
                 .map(this::mapToResponse)
                 .toList();
     }
+
+
+    @Override
+    @Transactional
+    public void assignLabel(
+            Long userId,
+            Long noteId,
+            Long labelId
+    ) {
+        Note note = noteRepository
+                .findByIdAndUserId(noteId, userId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Note not found"
+                        )
+                );
+
+        // Prevent modifying a note that is in Trash.
+        if (note.isTrashed()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Restore the note before adding labels"
+            );
+        }
+
+        // Both the label and note must belong to this user.
+        Label label = labelRepository
+                .findByIdAndUserId(labelId, userId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Label not found"
+                        )
+                );
+
+        // Set prevents duplicate associations.
+        note.getLabels().add(label);
+
+        noteRepository.save(note);
+    }
+
+    @Override
+    @Transactional
+    public void removeLabel(
+            Long userId,
+            Long noteId,
+            Long labelId
+    ) {
+        Note note = noteRepository
+                .findByIdAndUserId(noteId, userId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Note not found"
+                        )
+                );
+
+        Label label = labelRepository
+                .findByIdAndUserId(labelId, userId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Label not found"
+                        )
+                );
+
+        // Removing an absent association is harmless.
+        note.getLabels().remove(label);
+
+        noteRepository.save(note);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<NoteResponseDto> getNotesByLabel(
+            Long userId,
+            Long labelId
+    ) {
+        // Check label ownership even when it contains no notes.
+        labelRepository
+                .findByIdAndUserId(labelId, userId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Label not found"
+                        )
+                );
+
+        List<Note> notes =
+                noteRepository.findActiveNotesByLabel(
+                        userId, labelId
+                );
+
+        // Reuse your existing UC5 note response mapper.
+        return notes.stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
 
 }

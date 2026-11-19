@@ -55,4 +55,26 @@ public interface NoteService {
             Long userId,
             String keyword
     );
+
+
+    // UC8: Attach a label to an owned note.
+    void assignLabel(
+            Long userId,
+            Long noteId,
+            Long labelId
+    );
+
+    // UC8: Remove a label from an owned note.
+    void removeLabel(
+            Long userId,
+            Long noteId,
+            Long labelId
+    );
+
+    // UC8: List active notes by label.
+    List<NoteResponseDto> getNotesByLabel(
+            Long userId,
+            Long labelId
+    );
+
 }
