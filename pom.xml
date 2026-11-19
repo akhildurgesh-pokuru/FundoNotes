@@ -129,6 +129,13 @@
 		</dependency>
 
 
+		<!-- UC14: Spring Batch for bulk CSV note imports -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-batch</artifactId>
+		</dependency>
+
+
 
 	</dependencies>
 
