@@ -232,7 +232,14 @@ public class NoteServiceImpl implements NoteService {
         Note note = findOwnedNote(userId, noteId);
 
         // A note already in Trash stays in Trash.
-        note.setTrashed(true);
+
+        // UC15: Record the moment the note enters Trash.
+        // Don't reset retention just because Trash is requested again.
+        if (!note.isTrashed()) {
+            note.setTrashed(true);
+            note.setTrashedAt(Instant.now());
+        }
+
 
         // Clear other states to avoid conflicting categories.
         note.setPinned(false);
@@ -262,6 +269,8 @@ public class NoteServiceImpl implements NoteService {
 
         // Restore the note to the active notes list.
         note.setTrashed(false);
+        // UC15: Restored notes are no longer eligible for cleanup.
+        note.setTrashedAt(null);
         note.setArchived(false);
         note.setPinned(false);
 

@@ -49,6 +49,21 @@ public class Note {
     }
 
 
+    // UC15: When the note most recently entered Trash.
+    // NULL means it has no known trash-entry timestamp.
+    @Column(name = "trashed_at")
+    private Instant trashedAt;
+
+    public Instant getTrashedAt() {
+        return trashedAt;
+    }
+
+    public void setTrashedAt(Instant trashedAt) {
+        this.trashedAt = trashedAt;
+    }
+
+
+
     // Each note belongs to exactly one registered user.
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
