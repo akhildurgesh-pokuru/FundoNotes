@@ -42,18 +42,28 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
 
+
                 .authorizeHttpRequests(auth -> auth
 
-                        // Registration and login are public.
+                        // Registration, login, verification and recovery are public.
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/users/register",
-                                "/api/users/login"
+                                "/api/users/login",
+                                "/api/users/resend-verification",
+                                "/api/users/forgot-password",
+                                "/api/users/reset-password"
                         ).permitAll()
 
-                        // All other endpoints require a valid JWT.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/users/verify-email"
+                        ).permitAll()
+
+                        // Profile and future notes APIs require a valid JWT.
                         .anyRequest().authenticated()
                 )
+
 
                 .exceptionHandling(exceptions ->
                         exceptions.authenticationEntryPoint(

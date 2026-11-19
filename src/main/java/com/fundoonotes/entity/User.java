@@ -28,6 +28,11 @@ public class User {
     @Column(nullable = false)
     private String password;
 
+    // New registrations must verify their email before logging in.
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified = false;
+
+
     // JPA requires a no-argument constructor.
     public User() {
     }
@@ -70,5 +75,13 @@ public class User {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified;
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        this.emailVerified = emailVerified;
     }
 }

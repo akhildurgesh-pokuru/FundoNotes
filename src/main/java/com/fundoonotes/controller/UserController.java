@@ -7,18 +7,17 @@ import com.fundoonotes.dto.request.UserRegisterRequestDto;
 import com.fundoonotes.dto.response.LoginResponseDto;
 import com.fundoonotes.dto.response.UserResponseDto;
 import com.fundoonotes.service.UserService;
+import com.fundoonotes.dto.request.EmailRequestDto;
+import com.fundoonotes.dto.request.ResetPasswordRequestDto;
+import com.fundoonotes.service.AccountService;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
@@ -27,9 +26,14 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
+    private final AccountService accountService;
 
-    public UserController(UserService userService) {
+    public UserController(
+            UserService userService,
+            AccountService accountService
+    ) {
         this.userService = userService;
+        this.accountService = accountService;
     }
 
     @PostMapping("/register")
@@ -90,4 +94,60 @@ public class UserController {
 
         return ResponseEntity.ok(response);
     }
+
+
+    @GetMapping("/verify-email")
+    public ResponseEntity<Map<String, String>> verifyEmail(
+            @RequestParam String token
+    ) {
+
+        accountService.verifyEmail(token);
+
+        return ResponseEntity.ok(
+                Map.of("message", "Email verified successfully")
+        );
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<Map<String, String>> resendVerification(
+            @Valid @RequestBody EmailRequestDto request
+    ) {
+
+        accountService.resendVerification(request.email());
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "message",
+                        "If verification is required, an email will be sent"
+                )
+        );
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(
+            @Valid @RequestBody EmailRequestDto request
+    ) {
+
+        accountService.forgotPassword(request.email());
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "message",
+                        "If the account exists, a reset email will be sent"
+                )
+        );
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequestDto request
+    ) {
+
+        accountService.resetPassword(request);
+
+        return ResponseEntity.ok(
+                Map.of("message", "Password reset successfully")
+        );
+    }
+
 }

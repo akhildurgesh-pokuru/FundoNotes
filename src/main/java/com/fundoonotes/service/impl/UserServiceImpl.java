@@ -13,6 +13,7 @@ import com.fundoonotes.exception.UserNotFoundException;
 import com.fundoonotes.repository.UserRepository;
 import com.fundoonotes.security.TokenUtil;
 import com.fundoonotes.service.UserService;
+import com.fundoonotes.service.AccountService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,15 +33,22 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final TokenUtil tokenUtil;
 
+    private final AccountService accountService;
+
+
     public UserServiceImpl(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            TokenUtil tokenUtil
+            TokenUtil tokenUtil,
+            AccountService accountService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenUtil = tokenUtil;
+        this.accountService = accountService;
     }
+
+
 
     @Override
     @Transactional
@@ -62,12 +70,17 @@ public class UserServiceImpl implements UserService {
         user.setLastName(request.lastName().trim());
         user.setEmail(email);
 
-        // Hash the password before saving the user.
+        // New users must verify their email.
+        user.setEmailVerified(false);
+
         user.setPassword(
                 passwordEncoder.encode(request.password())
         );
 
         User savedUser = userRepository.saveAndFlush(user);
+
+        // Create and send the verification token.
+        accountService.sendRegistrationVerification(savedUser);
 
         log.info("Registered user with ID {}", savedUser.getId());
 
@@ -76,9 +89,10 @@ public class UserServiceImpl implements UserService {
                 savedUser.getFirstName(),
                 savedUser.getLastName(),
                 savedUser.getEmail(),
-                "User registered successfully"
+                "Registration successful. Verify your email before login."
         );
     }
+
 
     @Override
     @Transactional(readOnly = true)
@@ -104,6 +118,15 @@ public class UserServiceImpl implements UserService {
                     "Invalid email or password"
             );
         }
+
+
+        // Only verified accounts are allowed to receive JWTs.
+        if (!user.isEmailVerified()) {
+            throw new InvalidCredentialsException(
+                    "Please verify your email before logging in"
+            );
+        }
+
 
         String token = tokenUtil.generateToken(user.getId());
 

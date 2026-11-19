@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import com.fundoonotes.service.AccountService;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,6 +31,9 @@ class UserServiceImplTest {
 
     private UserServiceImpl userService;
 
+    @Mock
+    private AccountService accountService;
+
     private final PasswordEncoder passwordEncoder =
             new BCryptPasswordEncoder();
 
@@ -41,7 +45,8 @@ class UserServiceImplTest {
         userService = new UserServiceImpl(
                 userRepository,
                 passwordEncoder,
-                tokenUtil
+                tokenUtil,
+                accountService
         );
     }
 
