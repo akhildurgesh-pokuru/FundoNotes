@@ -129,6 +129,19 @@ public class GlobalExceptionHandler {
     }
 
 
+    @ExceptionHandler(InvalidNoteStateException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidNoteState(
+            InvalidNoteStateException exception
+    ) {
+
+        return buildError(
+                HttpStatus.BAD_REQUEST,
+                exception.getMessage()
+        );
+    }
+
+
+
 
 
 }
