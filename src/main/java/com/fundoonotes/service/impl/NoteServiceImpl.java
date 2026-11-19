@@ -10,6 +10,8 @@ import com.fundoonotes.exception.UserNotFoundException;
 import com.fundoonotes.repository.NoteRepository;
 import com.fundoonotes.repository.UserRepository;
 import com.fundoonotes.service.NoteService;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -360,4 +362,44 @@ public class NoteServiceImpl implements NoteService {
                 note.getUpdatedAt()
         );
     }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<NoteResponseDto> searchNotes(
+            Long userId,
+            String keyword
+    ) {
+
+        // Reject an empty search instead of returning every note.
+        if (keyword == null || keyword.isBlank()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Search keyword cannot be empty"
+            );
+        }
+
+        // Remove unnecessary spaces around the search term.
+        String normalizedKeyword = keyword.trim();
+
+        // The query searches only the authenticated user's active notes.
+        List<Note> matchingNotes =
+                noteRepository.searchActiveNotes(
+                        userId,
+                        normalizedKeyword
+                );
+
+        log.info(
+                "Found {} matching notes for user {}",
+                matchingNotes.size(),
+                userId
+        );
+
+        // Reuse the response mapping from UC5 and UC6.
+        return matchingNotes.stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
 }
