@@ -555,6 +555,11 @@ public class NoteServiceImpl implements NoteService {
 
         note.setReminderAt(reminderAt);
 
+
+        // UC10: A new or updated reminder has not yet been sent.
+        note.setReminderSentAt(null);
+
+
         Note saved = noteRepository.saveAndFlush(note);
 
         return mapToReminderResponse(saved);
@@ -596,6 +601,9 @@ public class NoteServiceImpl implements NoteService {
                 );
 
         note.setReminderAt(null);
+
+        // UC10: Clear the notification state too.
+        note.setReminderSentAt(null);
 
         noteRepository.saveAndFlush(note);
     }

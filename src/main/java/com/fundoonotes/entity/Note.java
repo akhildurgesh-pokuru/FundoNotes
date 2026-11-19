@@ -9,6 +9,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Column;
 
+
 @Entity
 @Table(name = "notes")
 public class Note {
@@ -164,4 +165,18 @@ public class Note {
     public Instant getUpdatedAt() {
         return updatedAt;
     }
+
+    // UC10: Records when the reminder email was sent.
+    // NULL means the current reminder has not been sent.
+    @Column(name = "reminder_sent_at")
+    private Instant reminderSentAt;
+
+    public Instant getReminderSentAt() {
+        return reminderSentAt;
+    }
+
+    public void setReminderSentAt(Instant reminderSentAt) {
+        this.reminderSentAt = reminderSentAt;
+    }
+
 }
