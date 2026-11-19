@@ -86,8 +86,11 @@ class NoteServiceImplTest {
     @Test
     void getAllNotes_ShouldReturnOnlyUserNotes() {
 
-        when(noteRepository.findByUserIdOrderByUpdatedAtDesc(1L))
+
+        when(noteRepository
+                .findByUserIdAndArchivedFalseAndTrashedFalseOrderByPinnedDescUpdatedAtDesc(1L))
                 .thenReturn(List.of(note));
+
 
         List<NoteResponseDto> result =
                 noteService.getAllNotes(1L);
@@ -95,8 +98,10 @@ class NoteServiceImplTest {
         assertEquals(1, result.size());
         assertEquals(10L, result.get(0).id());
 
+
         verify(noteRepository)
-                .findByUserIdOrderByUpdatedAtDesc(1L);
+                .findByUserIdAndArchivedFalseAndTrashedFalseOrderByPinnedDescUpdatedAtDesc(1L);
+
     }
 
     @Test
@@ -139,16 +144,27 @@ class NoteServiceImplTest {
         verify(noteRepository).saveAndFlush(note);
     }
 
+
     @Test
-    void deleteNote_ShouldDeleteOwnedNote() {
+    void deleteNote_ShouldMoveOwnedNoteToTrash() {
 
         when(noteRepository.findByIdAndUserId(10L, 1L))
                 .thenReturn(Optional.of(note));
 
+        when(noteRepository.saveAndFlush(note))
+                .thenReturn(note);
+
         noteService.deleteNote(1L, 10L);
 
-        verify(noteRepository).delete(note);
+        // UC6 soft delete sets the trashed flag.
+        assertTrue(note.isTrashed());
+
+        verify(noteRepository).saveAndFlush(note);
+
+        // Ordinary DELETE must not remove the database row.
+        verify(noteRepository, never()).delete(note);
     }
+
 
     @Test
     void getNoteById_ShouldRejectOtherUsersNote() {

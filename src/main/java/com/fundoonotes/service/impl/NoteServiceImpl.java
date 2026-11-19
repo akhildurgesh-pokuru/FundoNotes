@@ -4,6 +4,7 @@ import com.fundoonotes.dto.request.NoteRequestDto;
 import com.fundoonotes.dto.response.NoteResponseDto;
 import com.fundoonotes.entity.Note;
 import com.fundoonotes.entity.User;
+import com.fundoonotes.exception.InvalidNoteStateException;
 import com.fundoonotes.exception.NoteNotFoundException;
 import com.fundoonotes.exception.UserNotFoundException;
 import com.fundoonotes.repository.NoteRepository;
@@ -34,7 +35,8 @@ public class NoteServiceImpl implements NoteService {
         this.userRepository = userRepository;
     }
 
-    // CREATE NOTE
+    // ---------------- UC5: CREATE ----------------
+
     @Override
     @Transactional
     public NoteResponseDto createNote(
@@ -42,12 +44,9 @@ public class NoteServiceImpl implements NoteService {
             NoteRequestDto request
     ) {
 
-        // Get the authenticated user from the database.
         User user = userRepository.findById(userId)
                 .orElseThrow(() ->
-                        new UserNotFoundException(
-                                "User not found"
-                        )
+                        new UserNotFoundException("User not found")
                 );
 
         Note note = new Note();
@@ -55,10 +54,9 @@ public class NoteServiceImpl implements NoteService {
         note.setTitle(request.title().trim());
         note.setDescription(request.description());
 
-        // Assign ownership on the server, not from client input.
+        // The authenticated user becomes the note owner.
         note.setUser(user);
 
-        // Flush so JPA assigns the ID and timestamps before mapping.
         Note savedNote = noteRepository.saveAndFlush(note);
 
         log.info(
@@ -70,20 +68,22 @@ public class NoteServiceImpl implements NoteService {
         return mapToResponse(savedNote);
     }
 
-    // READ ALL NOTES FOR CURRENT USER
+    // ---------------- UC5 + UC6: READ ----------------
+
     @Override
     @Transactional(readOnly = true)
     public List<NoteResponseDto> getAllNotes(Long userId) {
 
-        List<Note> notes =
-                noteRepository.findByUserIdOrderByUpdatedAtDesc(userId);
-
-        return notes.stream()
+        // Main notes list excludes archived and trashed notes.
+        return noteRepository
+                .findByUserIdAndArchivedFalseAndTrashedFalseOrderByPinnedDescUpdatedAtDesc(
+                        userId
+                )
+                .stream()
                 .map(this::mapToResponse)
                 .toList();
     }
 
-    // READ ONE NOTE
     @Override
     @Transactional(readOnly = true)
     public NoteResponseDto getNoteById(
@@ -93,10 +93,14 @@ public class NoteServiceImpl implements NoteService {
 
         Note note = findOwnedNote(userId, noteId);
 
+        // Trashed notes are accessed through the Trash APIs.
+        ensureNotTrashed(note);
+
         return mapToResponse(note);
     }
 
-    // UPDATE NOTE
+    // ---------------- UC5: UPDATE ----------------
+
     @Override
     @Transactional
     public NoteResponseDto updateNote(
@@ -105,13 +109,14 @@ public class NoteServiceImpl implements NoteService {
             NoteRequestDto request
     ) {
 
-        // Refuse to load notes that belong to another user.
         Note note = findOwnedNote(userId, noteId);
+
+        // Editing notes in Trash is not allowed.
+        ensureNotTrashed(note);
 
         note.setTitle(request.title().trim());
         note.setDescription(request.description());
 
-        // JPA persists changes; saveAndFlush ensures timestamps update.
         Note updatedNote = noteRepository.saveAndFlush(note);
 
         log.info(
@@ -123,35 +128,225 @@ public class NoteServiceImpl implements NoteService {
         return mapToResponse(updatedNote);
     }
 
-    // DELETE NOTE
+    // ---------------- UC6: SOFT DELETE ----------------
+
     @Override
     @Transactional
     public void deleteNote(Long userId, Long noteId) {
 
+        // The old DELETE endpoint now moves notes to Trash.
+        moveToTrash(userId, noteId);
+    }
+
+    // ---------------- UC6: PIN ----------------
+
+    @Override
+    @Transactional
+    public NoteResponseDto pinNote(Long userId, Long noteId) {
+
         Note note = findOwnedNote(userId, noteId);
+
+        ensureActive(note);
+
+        note.setPinned(true);
+
+        return saveAndMap(note);
+    }
+
+    @Override
+    @Transactional
+    public NoteResponseDto unpinNote(Long userId, Long noteId) {
+
+        Note note = findOwnedNote(userId, noteId);
+
+        ensureActive(note);
+
+        note.setPinned(false);
+
+        return saveAndMap(note);
+    }
+
+    // ---------------- UC6: ARCHIVE ----------------
+
+    @Override
+    @Transactional
+    public NoteResponseDto archiveNote(
+            Long userId,
+            Long noteId
+    ) {
+
+        Note note = findOwnedNote(userId, noteId);
+
+        ensureNotTrashed(note);
+
+        note.setArchived(true);
+
+        // Archived notes should not remain pinned.
+        note.setPinned(false);
+
+        return saveAndMap(note);
+    }
+
+    @Override
+    @Transactional
+    public NoteResponseDto unarchiveNote(
+            Long userId,
+            Long noteId
+    ) {
+
+        Note note = findOwnedNote(userId, noteId);
+
+        ensureNotTrashed(note);
+
+        note.setArchived(false);
+
+        return saveAndMap(note);
+    }
+
+    // ---------------- UC6: TRASH ----------------
+
+    @Override
+    @Transactional
+    public NoteResponseDto moveToTrash(
+            Long userId,
+            Long noteId
+    ) {
+
+        Note note = findOwnedNote(userId, noteId);
+
+        // A note already in Trash stays in Trash.
+        note.setTrashed(true);
+
+        // Clear other states to avoid conflicting categories.
+        note.setPinned(false);
+        note.setArchived(false);
+
+        NoteResponseDto response = saveAndMap(note);
+
+        log.info("Moved note {} to Trash", noteId);
+
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public NoteResponseDto restoreNote(
+            Long userId,
+            Long noteId
+    ) {
+
+        Note note = findOwnedNote(userId, noteId);
+
+        if (!note.isTrashed()) {
+            throw new InvalidNoteStateException(
+                    "Only trashed notes can be restored"
+            );
+        }
+
+        // Restore the note to the active notes list.
+        note.setTrashed(false);
+        note.setArchived(false);
+        note.setPinned(false);
+
+        NoteResponseDto response = saveAndMap(note);
+
+        log.info("Restored note {} from Trash", noteId);
+
+        return response;
+    }
+
+    // ---------------- UC6: LIST ARCHIVED ----------------
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<NoteResponseDto> getArchivedNotes(Long userId) {
+
+        return noteRepository
+                .findByUserIdAndArchivedTrueAndTrashedFalseOrderByUpdatedAtDesc(
+                        userId
+                )
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    // ---------------- UC6: LIST TRASH ----------------
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<NoteResponseDto> getTrashedNotes(Long userId) {
+
+        return noteRepository
+                .findByUserIdAndTrashedTrueOrderByUpdatedAtDesc(
+                        userId
+                )
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    // ---------------- UC6: PERMANENT DELETE ----------------
+
+    @Override
+    @Transactional
+    public void permanentlyDeleteNote(
+            Long userId,
+            Long noteId
+    ) {
+
+        Note note = findOwnedNote(userId, noteId);
+
+        // Permanent deletion is permitted only from Trash.
+        if (!note.isTrashed()) {
+            throw new InvalidNoteStateException(
+                    "Move the note to Trash before permanent deletion"
+            );
+        }
 
         noteRepository.delete(note);
 
-        log.info(
-                "Deleted note {} for user {}",
-                noteId,
-                userId
-        );
+        log.info("Permanently deleted note {}", noteId);
     }
 
-    // Shared helper: find a note only if the user owns it.
+    // ---------------- SHARED HELPER METHODS ----------------
+
     private Note findOwnedNote(Long userId, Long noteId) {
 
+        // Prevent users from accessing other users' notes.
         return noteRepository
                 .findByIdAndUserId(noteId, userId)
                 .orElseThrow(() ->
-                        new NoteNotFoundException(
-                                "Note not found"
-                        )
+                        new NoteNotFoundException("Note not found")
                 );
     }
 
-    // Convert the database entity into a safe API response.
+    private void ensureNotTrashed(Note note) {
+
+        if (note.isTrashed()) {
+            throw new InvalidNoteStateException(
+                    "This operation is not allowed for trashed notes"
+            );
+        }
+    }
+
+    private void ensureActive(Note note) {
+
+        ensureNotTrashed(note);
+
+        if (note.isArchived()) {
+            throw new InvalidNoteStateException(
+                    "Unarchive the note before pinning or unpinning"
+            );
+        }
+    }
+
+    private NoteResponseDto saveAndMap(Note note) {
+
+        Note savedNote = noteRepository.saveAndFlush(note);
+
+        return mapToResponse(savedNote);
+    }
+
     private NoteResponseDto mapToResponse(Note note) {
 
         return new NoteResponseDto(
